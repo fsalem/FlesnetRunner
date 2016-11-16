@@ -1,0 +1,22 @@
+# The global timeslice size in number of MCs.
+#timeslice-size = 100
+
+# The size of the overlap region in number of MCs.
+overlap-size = 2
+
+# The global maximum timeslice number.
+max-timeslice-number = 10000
+
+# The name of the executable acting as timeslice processor.
+processor-executable = ./tsclient -c%i -s%s -a
+
+# The number of instances of the timeslice processor executable.
+processor-instances = 2
+
+
+standalone=false
+
+# input node buffer size
+#in-data-buffer-size-exp = 27
+# compute node buffer size 
+#cn-data-buffer-size-exp = 27
