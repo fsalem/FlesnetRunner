@@ -26,7 +26,7 @@ int main(int argc, char* argv[]) {
 	t1 = clock();
 
 	int maxNodes, minStartNodes, nodesInc, timesliceSize, inbufferSize,
-			compbufferSize;
+			compbufferSize, moreProcessPerNode;
 	string hugePages;
 	if (argc < 2) { // # of nodes
 		maxNodes = 2;
@@ -70,11 +70,17 @@ int main(int argc, char* argv[]) {
 		hugePages = argv[7];
 	}
 
+	if (argc < 9) { // More process per node
+		moreProcessPerNode = 0;
+	} else {
+		Helper::convertStringToInteger(string(argv[8]), moreProcessPerNode);
+	}
+
 	ofstream statFile, errorFile;
 	statFile.open("benchmark.xls");
 	errorFile.open("jobs/error.txt");
 	statFile
-			<< "Input Nodes\tCompute Nodes\tAgg bandwidth\tAvg bandwidth\tMedian bandwidth\tMin bandwidth\tMax Bandwidth\tTimeslice Size\tInput Buffer Size\tCompute Buffer Size\t Huge Pages\n";
+			<< "Nodes\tInput/Node\tCompute/Node\tAgg bandwidth\tAvg bandwidth\tMedian bandwidth\tMin bandwidth\tMax Bandwidth\tTimeslice Size\tInput Buffer Size\tCompute Buffer Size\t Huge Pages\tMultipe Processes per node\n";
 	string cmdMsg, cmdRes, bandwidthStr, jobId;
 	int basePort = 2000, basePortIncremental = 1;
 
@@ -83,108 +89,137 @@ int main(int argc, char* argv[]) {
 
 	vector<double> bandwidths;
 	int numFail = 0;
-	for (int inbuf = inbufferSize; inbuf < 33; inbuf += 2) {
-		for (int compbuf = compbufferSize; compbuf < 33; compbuf += 2) {
+	int loopLimit = 0;
+	if (moreProcessPerNode) {
+		loopLimit = 10;
+	} else {
+		loopLimit = maxNodes;
+	}
+	for (int inbuf = inbufferSize; inbuf < 30; inbuf += 2) {
+		for (int compbuf = compbufferSize; compbuf < 30; compbuf += 2) {
 			for (int ts = timesliceSize; ts < 100000; ts *= 10) {
 				// try all the permutations for input and compute nodes
-				for (int inNodes = minStartNodes; inNodes < maxNodes;
+				for (int inNodes = minStartNodes; inNodes < loopLimit;
 						inNodes += nodesInc) {
-					bandwidths.clear();
-					string tokens[4];
-					basePort += basePortIncremental;
-					if (basePort > 65535 - basePortIncremental - 1) {
-						basePort = 2000;
-					}
-					//cout << "Run sbatch with " << inNodes << " input nodes and "
-					//	<< compNodes << " Compute nodes\n";
-					cmdMsg = "NODES=" + Helper::integerToString(maxNodes)
-							+ " INPUT=" + Helper::integerToString(inNodes)
-							+ " COMPUTE="
-							+ Helper::integerToString(maxNodes - inNodes)
-							+ " BASE_PORT=" + Helper::integerToString(basePort)
-							+ " TIMESLICE_SIZE=" + Helper::integerToString(ts)
-							+ " IN_BUF_SIZE=" + Helper::integerToString(inbuf)
-							+ " CN_BUF_SIZE=" + Helper::integerToString(compbuf)
-							+ " HUGE_PAGES=" + hugePages + " SRUN=";
-
-					cmdRes = Helper::executeCommand("./checkCommand.sh msub");
-					if (cmdRes[0] == '1') {
-						cmdMsg += "0";
-						isMsub = true;
-					} else {
-						cmdMsg += "1";
-					}
-					cmdMsg += " ./flesnetStarter.sh";
-					cout << "\nCommand to be called: " << cmdMsg;
-					cmdRes = Helper::executeCommand(cmdMsg);
-					if (isMsub) {
-						jobId = Helper::trim(cmdRes);
-					} else {
-						Helper::convertStringToArray(cmdRes, tokens);
-						jobId = tokens[3];
-					}
-					cout << " with ID = '" << jobId << "'\n";
-
-					//cout << "tokens = '" << tokens[0] << "','" << tokens[1] << "','"
-					//	<< tokens[2] << "','" << tokens[3] << "'" << endl;
-
-					//cout << "A job is started with ID = " << jobId << endl;
-					// check that the job is finished
-					Helper::waitForJobCompletion(jobId, isMsub);
-
-					//get the bandwidth from each input file
-					Helper::getBandwidthDetails(jobId, inNodes, &bandwidths);
-
-					if (bandwidths.size() == inNodes) {
-
-						sort(bandwidths.begin(),
-								bandwidths.begin() + bandwidths.size());
-						if (inNodes % 2 == 0) {
-							medianBandwidth = (bandwidths[bandwidths.size() / 2]
-									+ bandwidths[(bandwidths.size() / 2) - 1])
-									/ 2.0;
-						} else {
-							medianBandwidth = bandwidths[bandwidths.size() / 2];
+					for (int comNodes = minStartNodes; comNodes < loopLimit;
+							comNodes += nodesInc) {
+						bandwidths.clear();
+						string tokens[4];
+						basePort += basePortIncremental;
+						if (basePort > 65535 - basePortIncremental - 1) {
+							basePort = 2000;
 						}
-						totalBandwidth = accumulate(bandwidths.begin(),
-								bandwidths.end(), 0);
-						statFile << inNodes << "\t" << (maxNodes - inNodes)
-								<< "\t" << totalBandwidth << "\t"
-								<< (totalBandwidth / (inNodes * 1.0)) << "\t"
-								<< medianBandwidth << "\t" << bandwidths[0]
-								<< "\t" << bandwidths[bandwidths.size() - 1]
-								<< "\t" << ts << "\t" << inbuf << "\t"
-								<< compbuf << "\t" << hugePages << "\n";
-						statFile.flush();
-						cmdMsg = "rm -Rf job" + jobId + ".out job" + jobId
-								+ ".err jobs/" + jobId + "/";
-						cmdMsg = Helper::executeCommand(cmdMsg);
-						numFail = 0;
-					} else {
-						errorFile << jobId << endl;
-						cout << "Error happened while getting files\n";
-						if (numFail < 1) { // try one more time when failure is happened
-							inNodes -= nodesInc;
-							numFail++;
+						//cout << "Run sbatch with " << inNodes << " input nodes and "
+						//	<< compNodes << " Compute nodes\n";
+						cmdMsg = "MULTI="
+								+ Helper::integerToString(moreProcessPerNode)
+								+ " NODES=" + Helper::integerToString(maxNodes)
+								+ " INPUT=" + Helper::integerToString(inNodes)
+								+ " COMPUTE="
+								+ Helper::integerToString(comNodes)
+								+ " BASE_PORT="
+								+ Helper::integerToString(basePort)
+								+ " TIMESLICE_SIZE="
+								+ Helper::integerToString(ts) + " IN_BUF_SIZE="
+								+ Helper::integerToString(inbuf)
+								+ " CN_BUF_SIZE="
+								+ Helper::integerToString(compbuf)
+								+ " HUGE_PAGES=" + hugePages + " SRUN=";
+
+						cmdRes = Helper::executeCommand(
+								"./checkCommand.sh msub");
+						if (cmdRes[0] == '1') {
+							cmdMsg += "0";
+							isMsub = true;
 						} else {
-							numFail = 0;
-							statFile << inNodes << "\t" << (maxNodes - inNodes)
-									<< "\t" << 0 << "\t" << 0 << "\t" << 0
-									<< "\t" << 0 << "\t" << 0 << "\t" << ts
-									<< "\t" << inbuf << "\t" << compbuf << "\t"
-									<< hugePages << "\t" << jobId << "\n";
+							cmdMsg += "1";
+						}
+						cmdMsg += " ./flesnetStarter.sh";
+						cout << "\nCommand to be called: " << cmdMsg;
+						cmdRes = Helper::executeCommand(cmdMsg);
+						if (isMsub) {
+							jobId = Helper::trim(cmdRes);
+						} else {
+							Helper::convertStringToArray(cmdRes, tokens);
+							jobId = tokens[3];
+						}
+						cout << " with ID = '" << jobId << "'\n";
+
+						//cout << "tokens = '" << tokens[0] << "','" << tokens[1] << "','"
+						//	<< tokens[2] << "','" << tokens[3] << "'" << endl;
+
+						//cout << "A job is started with ID = " << jobId << endl;
+						// check that the job is finished
+						Helper::waitForJobCompletion(jobId, isMsub);
+						int inNodeFiles;
+						if (moreProcessPerNode) {
+							inNodeFiles = inNodes * maxNodes;
+						} else {
+							inNodeFiles = inNodes;
+						}
+						//get the bandwidth from each input file
+						Helper::getBandwidthDetails(jobId, inNodeFiles,
+								&bandwidths);
+
+						if (bandwidths.size() == inNodeFiles) {
+
+							sort(bandwidths.begin(),
+									bandwidths.begin() + bandwidths.size());
+							if (inNodeFiles % 2 == 0) {
+								medianBandwidth =
+										(bandwidths[bandwidths.size() / 2]
+												+ bandwidths[(bandwidths.size()
+														/ 2) - 1]) / 2.0;
+							} else {
+								medianBandwidth = bandwidths[bandwidths.size()
+										/ 2];
+							}
+							totalBandwidth = accumulate(bandwidths.begin(),
+									bandwidths.end(), 0);
+							statFile << maxNodes << "\t" << inNodes << "\t"
+									<< comNodes << "\t" << totalBandwidth
+									<< "\t"
+									<< (totalBandwidth
+											/ (inNodes * maxNodes * 1.0))
+									<< "\t" << medianBandwidth << "\t"
+									<< bandwidths[0] << "\t"
+									<< bandwidths[bandwidths.size() - 1] << "\t"
+									<< ts << "\t" << inbuf << "\t" << compbuf
+									<< "\t" << hugePages << "\t"
+									<< moreProcessPerNode << "\n";
 							statFile.flush();
+							cmdMsg = "rm -Rf job" + jobId + ".out job" + jobId
+									+ ".err jobs/" + jobId + "/";
+							cmdMsg = Helper::executeCommand(cmdMsg);
+							numFail = 0;
+						} else {
+							errorFile << jobId << endl;
+							cout << "Error happened while getting files\n";
+							if (numFail < 1) { // try one more time when failure is happened
+								comNodes -= nodesInc;
+								numFail++;
+							} else {
+								numFail = 0;
+								statFile << maxNodes << "\t" << inNodes << "\t"
+										<< comNodes << "\t" << 0 << "\t" << 0
+										<< "\t" << 0 << "\t" << 0 << "\t" << 0
+										<< "\t" << ts << "\t" << inbuf << "\t"
+										<< compbuf << "\t" << hugePages << "\t"
+										<< moreProcessPerNode << "\t" << jobId
+										<< "\n";
+								statFile.flush();
+							}
 						}
-					}
-					if (isMsub) {
-						cmdMsg = "canceljob " + jobId;
-					} else {
-						cmdMsg = "scancel " + jobId;
-					}
-					//cout << "command to be called: " << cmdMsg << endl;
-					cmdMsg = Helper::executeCommand(cmdMsg);
-					//cout << "scancel output is " << cmdMsg << endl;
+						if (isMsub) {
+							cmdMsg = "canceljob " + jobId;
+						} else {
+							cmdMsg = "scancel " + jobId;
+						}
+						//cout << "command to be called: " << cmdMsg << endl;
+						cmdMsg = Helper::executeCommand(cmdMsg);
+						//cout << "scancel output is " << cmdMsg << endl;
 
+					}
 				}
 			}
 		}
