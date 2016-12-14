@@ -2,7 +2,7 @@
 #MSUB -e job$MOAB_JOBID.err
 #MSUB -o job$MOAB_JOBID.out
 #MSUB -l walltime=00:10:00
-#MSUB -F exclusive
+#MSUB -q mpp1testq
 
 source env_variables.sh
 

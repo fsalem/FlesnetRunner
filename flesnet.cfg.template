@@ -20,3 +20,5 @@ standalone=false
 #in-data-buffer-size-exp = 27
 # compute node buffer size 
 #cn-data-buffer-size-exp = 27
+
+use-libfabric=true

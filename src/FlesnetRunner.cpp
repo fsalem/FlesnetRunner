@@ -95,14 +95,16 @@ int main(int argc, char* argv[]) {
 	} else {
 		loopLimit = maxNodes;
 	}
-	for (int inbuf = inbufferSize; inbuf < 30; inbuf += 2) {
-		for (int compbuf = compbufferSize; compbuf < 30; compbuf += 2) {
+	int inbuf = inbufferSize, compbuf = compbufferSize;
+	//for (int inbuf = inbufferSize; inbuf < 30; inbuf += 2) {
+		//for (int compbuf = compbufferSize; compbuf < 30; compbuf += 2) {
 			for (int ts = timesliceSize; ts < 100000; ts *= 10) {
 				// try all the permutations for input and compute nodes
 				for (int inNodes = minStartNodes; inNodes < loopLimit;
 						inNodes += nodesInc) {
-					for (int comNodes = minStartNodes; comNodes < loopLimit;
-							comNodes += nodesInc) {
+					int comNodes = /*maxNodes -*/ inNodes;
+					//for (int comNodes = minStartNodes; comNodes < (loopLimit-inNodes); comNodes += nodesInc)
+					{
 						bandwidths.clear();
 						string tokens[4];
 						basePort += basePortIncremental;
@@ -113,7 +115,7 @@ int main(int argc, char* argv[]) {
 						//	<< compNodes << " Compute nodes\n";
 						cmdMsg = "MULTI="
 								+ Helper::integerToString(moreProcessPerNode)
-								+ " NODES=" + Helper::integerToString(maxNodes)
+								+ " NODES=" + Helper::integerToString(inNodes+comNodes)/*Helper::integerToString(maxNodes)*/
 								+ " INPUT=" + Helper::integerToString(inNodes)
 								+ " COMPUTE="
 								+ Helper::integerToString(comNodes)
@@ -222,8 +224,8 @@ int main(int argc, char* argv[]) {
 					}
 				}
 			}
-		}
-	}
+	//	}
+//	}
 	statFile.flush();
 	errorFile.flush();
 	statFile.close();

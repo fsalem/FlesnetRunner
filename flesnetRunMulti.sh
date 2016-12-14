@@ -28,10 +28,16 @@ if [ "1" -eq "$MULTI" ]; then
 else
 	if [ $PROCID -lt $INPUT ]; then
 		sleep 10s
-		./flesnet -i $PROCID >> jobs/$JOB_ID/$PROCID.input.out 2>&1
+		./flesnet -i $PROCID -f $FILE1 >> jobs/$JOB_ID/$PROCID.input1.out 2>&1 &
+		./flesnet -i $PROCID -f $FILE2 >> jobs/$JOB_ID/$PROCID.input2.out 2>&1
 	else 
 		COMP_ID=$((PROCID - INPUT))
-		./flesnet -c $COMP_ID >> jobs/$JOB_ID/$COMP_ID.compute.out 2>&1
+		COMP_MULTI_ID=$(( (PROCID - INPUT) / 2 ))
+		if [[ $(( COMP_ID % 2 ))  == "0" ]]; then
+			./flesnet -c $COMP_MULTI_ID -f $FILE2 >> jobs/$JOB_ID/$COMP_MULTI_ID.compute2.out 2>&1
+		else
+			./flesnet -c $COMP_MULTI_ID -f $FILE1 >> jobs/$JOB_ID/$COMP_MULTI_ID.compute1.out 2>&1
+		fi
 	fi
 fi
 wait
