@@ -17,7 +17,7 @@ echo "MULTI=$MULTI" >> $FILENAME
 res=0
 
 if [ "$SRUN" -eq "1" ]; then
-	res=1
+	res=$(sbatch -N $NODES flesnetSbatch.sh)
 else
 	res=$(msub -l nodes=$NODES -E flesnetMsub.sh)
 fi

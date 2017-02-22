@@ -6,22 +6,19 @@ NODES=(${2//;/ }) # name of hosts
 NINPUT=$4 # number of input nodes
 NCOMP=$3 # number of output nodes
 BASE_PORT=$5 # base port to start with
+USE_VERBS=$6
 #echo "NIMPUTS = $NINPUT, NCOMP = $NCOMP"
 I=0
 echo -e "\n# The list of participating input nodes." > $FILENAME
 
-#echo "NUM NODES = $5"
-#if [ "$5" = "1" ];then
-#	NODE_ADDR=$(host $NODES | awk '/has address/ { print $4 }')
-#	echo "input-nodes = $NODE_ADDR" >> $FILENAME
-#	echo "compute-nodes = $NODE_ADDR" >> $FILENAME
-#else
 for NODE in "${NODES[@]}"
 do
 	#echo "currentnode = $NODE"
 	NODE_ADDR=$(host $NODE | awk '/has address/ { print $4 }')
-	#NODE_ADDR=$NODE
-	#echo "NODE_ADDR=$NODE_ADDR"
+	if [[ "1" -eq $USE_VERBS ]]; then
+		NODE_ADDR=$NODE
+	fi
+	echo "NODE_ADDR=$NODE_ADDR"
 	I=$((I+1))
 	if [ "$I" -le "$NINPUT" ]; then
 		echo "input-nodes = $NODE_ADDR" >> $FILENAME
@@ -32,8 +29,7 @@ do
 	if [ "$I" -eq "$NINPUT" ]; then
 		echo -e "\n# The list of participating compute nodes." >> $FILENAME
 	fi
-done 
-#fi
+done
 echo -e "\n\n" >> $FILENAME
 echo -e "base-port = $BASE_PORT\n\n" >> $FILENAME
 cat flesnet.cfg.template >> $FILENAME

@@ -22,3 +22,5 @@ standalone=false
 #cn-data-buffer-size-exp = 27
 
 use-libfabric=true
+
+min-recv-ts-to-process=-1

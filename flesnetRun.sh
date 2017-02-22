@@ -3,6 +3,7 @@
 FI_LOG_LEVEL=Debug
 PROCID=-1
 export HUGETLB_VERBOSE=2
+echo "SRUN = $SRUN"
 if [ "$SRUN" -eq "1" ]; then
 	PROCID=$SLURM_PROCID
 else
